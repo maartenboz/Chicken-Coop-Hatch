@@ -1,0 +1,153 @@
+/* kippenhok luik v2
+ *      
+ *
+ *  by: Maarten Bos
+ */
+
+ 
+// defines pins numbers
+const int stepPin = 3;        //step pin van motor driver
+const int dirPin = 4;         //direction pin van motor driver
+
+const int bovencontact = 5;   //reedcontact boven
+const int ondercontact = 6;   //reedcontact onder
+
+const int greenPin  = 10;     //rode led 
+const int geelPin   = 9;      //gele led
+
+const int ldrPin    = A0;      //ldr
+
+
+// variablen
+int bovenstate = 0;           //status van reedcontact boven
+int onderstate = 0;           //status van reedcontact onder
+
+int ldrWaarde  = 0;           //waarde van de ldr
+
+int luikstate  = 0;           // geeft aan waar het luik is. 0 is gesloten/beneden, 1 = open/boven
+
+int openwaarde  = 50;        //bij een waarde groter  dan dit moet het luik openen
+int sluitwaarde = 25;         //bij een waarde kleiner dan dit moet het luik sluiten
+
+int timeouttime = 30000;      //tijd hoelang de motor kan draaien voordat deze uitschakeld als beveiliging
+uint32_t timer;               // 32 bits timer
+ 
+void setup() {
+  //zet de outputs en inputs
+  pinMode(stepPin,OUTPUT); 
+  pinMode(dirPin,OUTPUT);
+  pinMode(bovencontact, INPUT);
+  pinMode(ondercontact, INPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(geelPin, OUTPUT);
+  pinMode(ldrPin, INPUT);
+
+  timer = 0;      //reset timer
+
+  omhoog();       //ga elke keer dat systeem opstart eerst met het luik omhoog.
+
+}
+void loop() {
+  bovenstate = digitalRead(bovencontact);       //lees reedcontact boven uit
+  onderstate = digitalRead(ondercontact);       //lees reedcontact beneden uit
+
+  ldrWaarde  = analogRead(ldrPin);
+
+  if (ldrWaarde < sluitwaarde and luikstate == 1){   //wanneer het donkerder is dan de sluitwaarde en luik is nog open
+    omlaag();                                       //luik sluiten
+  }
+
+  if (ldrWaarde > openwaarde and luikstate == 0){    //wanneer het lichter is dan de openwaarde en luik is nog dicht
+    omhoog();                                       //luik openen
+  }
+  
+  //lampjes om magneetschakelaar te testen
+  if (bovenstate == 1){
+    digitalWrite(greenPin,HIGH);
+  }
+  else{
+    digitalWrite(greenPin, LOW);
+    
+  }
+
+  if(onderstate == 1){
+    digitalWrite(geelPin,HIGH);
+  }
+  else{
+    digitalWrite(geelPin,LOW);
+  }
+
+}
+
+// omlaag doen van het luik
+void omlaag(){
+
+  digitalWrite(dirPin,LOW);                   //zet rotatie juist
+
+  timer = millis();                           //start timer
+
+  //zolang magneet contact niet gesloten is en de timer niet is overgelopen; blijf dit herhalen
+  while(onderstate != 1 and (millis() - timer) < timeouttime){
+
+    bovenstate = digitalRead(bovencontact);     //lees reedcontacten uit
+    onderstate = digitalRead(ondercontact);
+    
+    digitalWrite(stepPin,HIGH);                 //zet een stap met de motor
+    delayMicroseconds(10000); 
+    digitalWrite(stepPin,LOW); 
+    delayMicroseconds(10000); 
+  }
+
+  if ((millis() - timer) > timeouttime){        //wanneer de timer is overgelopen (fout opgetreden)
+    noodstop();                                 //ga niet verder en zet het syteem inactief
+  }
+
+  timer = 0;              //reset timer
+  luikstate = 0;          //luikstate = 0 = omlaag/gesloten
+  
+  }
+
+// omhoog doen van het luik
+void omhoog(){
+  
+  digitalWrite(dirPin,HIGH);                   //zet rotatie juist
+
+  timer = millis();                            //start timer
+
+  //zolang magneet contact niet gesloten is en de timer niet is overgelopen; blijf dit herhalen
+  while(bovenstate != 1 and (millis() - timer) < timeouttime){
+    
+    bovenstate = digitalRead(bovencontact);    //lees magneetcontacten uit
+    onderstate = digitalRead(ondercontact);
+
+    digitalWrite(stepPin,HIGH);                //zet een stap met de motor
+    delayMicroseconds(10000);
+    digitalWrite(stepPin,LOW);
+    delayMicroseconds(10000);
+   }
+
+  if ((millis() - timer) > timeouttime){        //wanneer de timer is overgelopen (fout opgetreden)
+    noodstop();                                 //ga niet verder en zet het syteem inactief
+  }
+
+  timer = 0;              //reset timer
+  luikstate = 1;          //luikstate = 1 = omhoog/open
+   
+}
+
+void noodstop(){
+  
+  int nood = 1;   //maak variable aan voor oneindige loop
+
+  //start een loop
+  do{
+      digitalWrite(greenPin, HIGH);   //knipper om de beurt me de leds
+      delay(2000);
+      digitalWrite(greenPin, LOW);
+      delay(2000);
+      digitalWrite(geelPin, HIGH);
+      delay(2000);
+      digitalWrite(geelPin, LOW);
+      delay(2000);
+      }while (nood = 1);
+}
